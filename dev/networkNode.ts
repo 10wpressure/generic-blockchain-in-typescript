@@ -71,11 +71,11 @@ app.post('/register-and-broadcast-node', (req, res) => {
                 baseURL: newNodeUrl,
                 data: { allNetworkNodes: [...bitcoin.networkNodes, bitcoin.currentNodeUrl] },
             };
-            return axios(bulkRegisterOptions)
+            return axios(bulkRegisterOptions);
         })
         .then((data) => {
-            res.json({note: 'New node registered with network succesfully'})
-        })
+            res.json({ note: 'New node registered with network succesfully' });
+        });
 });
 
 // used on other nodes when they receive broadcast with new node parameters
@@ -88,8 +88,14 @@ app.post('/register-node', (req, res) => {
 });
 
 // used on the new node to register all existing nodes in one package
-app.post('register-nodes-bulk', (req, res) => {
-
+app.post('/register-nodes-bulk', (req, res) => {
+    const allNetworkNodes = req.body.allNetworkNodes;
+    allNetworkNodes.forEach((networkNodeUrl) => {
+        const nodeNotAlreadyPresent = bitcoin.networkNodes.indexOf(networkNodeUrl) == -1;
+        const notCurrentNode = bitcoin.currentNodeUrl !== networkNodeUrl;
+        if (nodeNotAlreadyPresent && notCurrentNode) bitcoin.networkNodes.push(networkNodeUrl);
+    });
+    res.json({ note: 'Bulk registration is successfull.' });
 });
 
 app.listen(port, function() {
