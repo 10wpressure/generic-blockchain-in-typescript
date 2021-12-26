@@ -3,6 +3,7 @@ import * as bodyParser from 'body-parser';
 import { Blockchain } from './blockchain';
 import { v1 as uuid } from 'uuid';
 import { AxiosRequestConfig } from 'axios';
+
 const axios = require('axios').default;
 
 const nodeAddress = uuid().split('-').join('');
@@ -57,20 +58,33 @@ app.post('/register-and-broadcast-node', (req, res) => {
             url: '/register-node',
             method: 'post',
             baseURL: networkNodeUrl,
-            data: { newNodeUrl: newNodeUrl},
+            data: { newNodeUrl: newNodeUrl },
         };
         regNodesPromises.push(axios(requestOptions));
     });
 
     Promise.all(regNodesPromises)
-        .then(data => {
-
+        .then((data) => {
+            const bulkRegisterOptions: AxiosRequestConfig = {
+                url: '/register-nodes-bulk',
+                method: 'post',
+                baseURL: newNodeUrl,
+                data: { allNetworkNodes: [...bitcoin.networkNodes, bitcoin.currentNodeUrl] },
+            };
+            return axios(bulkRegisterOptions)
+        })
+        .then((data) => {
+            res.json({note: 'New node registered with network succesfully'})
         })
 });
 
 // used on other nodes when they receive broadcast with new node parameters
 app.post('/register-node', (req, res) => {
-
+    const newNodeUrl = req.body.newNodeUrl;
+    const nodeNotAlreadyPresent = bitcoin.networkNodes.indexOf(newNodeUrl) == -1;
+    const notCurrentNode = bitcoin.currentNodeUrl !== newNodeUrl;
+    if (nodeNotAlreadyPresent && notCurrentNode) bitcoin.networkNodes.push(newNodeUrl);
+    res.json({ note: 'New node registered successfully.' });
 });
 
 // used on the new node to register all existing nodes in one package

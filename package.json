@@ -9,7 +9,8 @@
     "node_2": "nodemon ./dev/networkNode.ts 3002 http://localhost:3002",
     "node_3": "nodemon ./dev/networkNode.ts 3003 http://localhost:3003",
     "node_4": "nodemon ./dev/networkNode.ts 3004 http://localhost:3004",
-    "node_5": "nodemon ./dev/networkNode.ts 3005 http://localhost:3005"
+    "node_5": "nodemon ./dev/networkNode.ts 3005 http://localhost:3005",
+    "start":  "bash -c 'yarn node_1 & yarn node_2 & yarn node_3 & yarn node_4 & yarn node_5'"
   },
   "author": "Boris Kuznetsov",
   "license": "ISC",
