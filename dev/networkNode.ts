@@ -26,6 +26,29 @@ app.post('/transaction', (req, res) => {
     res.json({ note: `Transaction will be added in block ${blockIndex}.` });
 });
 
+app.post('/transaction/broadcast', (req, res) => {
+    const newTransaction = bitcoin.createNewTransaction(req.body.amount, req.body.sender, req.body.recipient);
+    bitcoin.addTransactionToPendingTransactions(newTransaction);
+
+    const requestPromises = [];
+    bitcoin.networkNodes.forEach(networkNodeUrl => {
+        const requestOptions: AxiosRequestConfig = {
+            url: '/transaction',
+            method: 'post',
+            baseURL: networkNodeUrl,
+            data: newTransaction,
+        };
+        requestPromises.push(axios(requestOptions));
+    });
+    Promise.all(requestPromises)
+        .then((data) => {
+            res.json({ note: 'Transaction was created and broadcast successfully.' });
+        })
+        .catch((error) => {
+            console.log(error);
+        });
+});
+
 // mine new block
 app.get('/mine', (req, res) => {
     const lastBlock = bitcoin.getLastBlock();
@@ -75,6 +98,9 @@ app.post('/register-and-broadcast-node', (req, res) => {
         })
         .then((data) => {
             res.json({ note: 'New node registered with network succesfully' });
+        })
+        .catch((error) => {
+            console.log(error);
         });
 });
 

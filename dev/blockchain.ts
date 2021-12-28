@@ -1,6 +1,7 @@
 const sha256 = require('sha256');
 const currentNodeUrl = process.argv[3];
 import { IBlock, ITransactions } from './interfaces/';
+import { v1 as uuid } from 'uuid';
 
 export class Blockchain {
     chain: IBlock[] = [];
@@ -33,15 +34,17 @@ export class Blockchain {
         return this.chain[this.chain.length - 1];
     }
 
-    createNewTransaction(amount: number, sender: string, recipient: string): number {
-        const newTransaction: ITransactions = {
+    createNewTransaction(amount: number, sender: string, recipient: string): ITransactions {
+        return {
             amount: amount,
             sender: sender,
             recipient: recipient,
+            transactionId: uuid().split('-').join(''),
         };
+    }
 
-        this.pendingTransactions.push(newTransaction);
-
+    addTransactionToPendingTransactions(transactionObj): number {
+        this.pendingTransactions.push(transactionObj);
         return this.getLastBlock()['index'] + 1;
     }
 
