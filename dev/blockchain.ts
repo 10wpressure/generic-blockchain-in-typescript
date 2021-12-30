@@ -14,7 +14,11 @@ export class Blockchain {
         this.currentNodeUrl = currentNodeUrl;
     }
 
-    createNewBlock(nonce: number, previousBlockHash: string, hash: string): IBlock {
+    createNewBlock(
+        nonce: number,
+        previousBlockHash: string,
+        hash: string,
+    ): IBlock {
         const newBlock: IBlock = {
             index: this.chain.length + 1,
             timestamp: Date.now(),
@@ -34,7 +38,11 @@ export class Blockchain {
         return this.chain[this.chain.length - 1];
     }
 
-    createNewTransaction(amount: number, sender: string, recipient: string): ITransactions {
+    createNewTransaction(
+        amount: number,
+        sender: string,
+        recipient: string,
+    ): ITransactions {
         return {
             amount: amount,
             sender: sender,
@@ -49,7 +57,10 @@ export class Blockchain {
     }
 
     hashBlock(previousBlockHash: string, currentBlockData: {}, nonce: number) {
-        const dataAsString = previousBlockHash + nonce.toString() + JSON.stringify(currentBlockData);
+        const dataAsString =
+            previousBlockHash +
+            nonce.toString() +
+            JSON.stringify(currentBlockData);
         return sha256(dataAsString);
     }
 
@@ -62,5 +73,48 @@ export class Blockchain {
             hash = this.hashBlock(previousBlockHash, currentBlockData, nonce);
         }
         return nonce;
+    }
+
+    chainIsValid(blockchain): boolean {
+        let validChain = true;
+
+        for (let i = 1; i < blockchain.length; i++) {
+            const currentBlock = blockchain[i];
+            const previousBlock = blockchain[i - 1];
+            const blockHash = this.hashBlock(
+                previousBlock['hash'],
+                {
+                    transactions: currentBlock['transactions'],
+                    index: currentBlock['index'],
+                },
+                currentBlock['nonce'],
+            );
+
+            if (blockHash.substring(0, 4) !== '0000') {
+                validChain = false;
+            }
+            if (currentBlock['previousBlockHash'] !== previousBlock['hash']) {
+                validChain = false;
+            }
+
+            console.log('previousBlockHash =>', previousBlock['hash']);
+            console.log('currentBlockHash =>', currentBlock['hash']);
+        }
+        const genesisBlock = blockchain[0];
+        const correctNonce = genesisBlock['nonce'] === 100;
+        const correctPreviousBlockHash =
+            genesisBlock['previousBlockHash'] === '0';
+        const correctHash = genesisBlock['hash'] === '0';
+        const correctTransactions = genesisBlock['transactions'].length === 0;
+
+        if (
+            !correctNonce ||
+            !correctPreviousBlockHash ||
+            !correctHash ||
+            !correctTransactions
+        ) {
+            validChain = false;
+        }
+        return validChain;
     }
 }
