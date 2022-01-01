@@ -173,6 +173,48 @@ app.post('/register-nodes-bulk', (req, res) => {
     res.json({ note: 'Bulk registration is successfull.' });
 });
 
+app.get('/consensus', (req, res) => {
+    const requestPromises = [];
+    bitcoin.networkNodes.forEach((networkNodeUrl) => {
+        const requestOptions: AxiosRequestConfig = {
+            url: '/blockchain',
+            method: 'get',
+            baseURL: networkNodeUrl,
+        };
+
+        requestPromises.push(axios(requestOptions));
+    });
+    Promise.all(requestPromises)
+        .then(blockchains => {
+            let maxChainLength = bitcoin.chain.length;
+            let newLongestChain = null;
+            let newPendingTransactions = null;
+
+            blockchains.forEach(blockchain => {
+                if (blockchain.length > maxChainLength) {
+                    maxChainLength = blockchain.chain.length;
+                    newLongestChain = blockchain.chain;
+                    newPendingTransactions = blockchain.pendingTransactions;
+                }
+            });
+
+            if (!newLongestChain || (newLongestChain && !bitcoin.chainIsValid(newLongestChain))) {
+                res.json({
+                    note: 'Current chain has not been replaced.',
+                    chain: bitcoin.chain,
+                });
+            } else if (newLongestChain && bitcoin.chainIsValid(newLongestChain)) {
+                bitcoin.chain = newLongestChain;
+                bitcoin.pendingTransactions = newPendingTransactions;
+                res.json({
+                    note: 'This chain has been replaced.',
+                    chain: bitcoin.chain,
+                })
+            }
+        })
+        .catch(error => console.log(error));
+});
+
 app.listen(port, function() {
     console.log(`Listening on port ${port}...`);
 });
