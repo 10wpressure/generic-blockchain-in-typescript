@@ -1,9 +1,11 @@
+import IBlockChain from './interfaces/IBlockChain';
+
 const sha256 = require('sha256');
 const currentNodeUrl = process.argv[3];
 import { IBlock, ITransactions } from './interfaces/';
 import { v1 as uuid } from 'uuid';
 
-export class Blockchain {
+export class Blockchain implements IBlockChain {
     chain: IBlock[] = [];
     pendingTransactions: ITransactions[] = [];
     currentNodeUrl: string;
@@ -97,8 +99,8 @@ export class Blockchain {
                 validChain = false;
             }
 
-            console.log('previousBlockHash =>', previousBlock['hash']);
-            console.log('currentBlockHash =>', currentBlock['hash']);
+            // console.log('previousBlockHash =>', previousBlock['hash']);
+            // console.log('currentBlockHash =>', currentBlock['hash']);
         }
         const genesisBlock = blockchain[0];
         const correctNonce = genesisBlock['nonce'] === 100;

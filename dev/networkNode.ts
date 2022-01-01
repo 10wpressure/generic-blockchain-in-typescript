@@ -3,6 +3,7 @@ import * as bodyParser from 'body-parser';
 import { Blockchain } from './blockchain';
 import { v1 as uuid } from 'uuid';
 import { AxiosRequestConfig } from 'axios';
+import { IBlock, IBlockChain } from './interfaces';
 
 const axios = require('axios').default;
 
@@ -23,16 +24,21 @@ app.get('/blockchain', (req, res) => {
 // add transaction to blockchain
 app.post('/transaction', (req, res) => {
     const newTransaction = req.body;
-    const blockIndex = bitcoin.addTransactionToPendingTransactions(newTransaction);
+    const blockIndex =
+        bitcoin.addTransactionToPendingTransactions(newTransaction);
     res.json({ note: `Transaction will be added in block ${blockIndex}.` });
 });
 
 app.post('/transaction/broadcast', (req, res) => {
-    const newTransaction = bitcoin.createNewTransaction(req.body.amount, req.body.sender, req.body.recipient);
+    const newTransaction = bitcoin.createNewTransaction(
+        req.body.amount,
+        req.body.sender,
+        req.body.recipient,
+    );
     bitcoin.addTransactionToPendingTransactions(newTransaction);
 
     const requestPromises = [];
-    bitcoin.networkNodes.forEach(networkNodeUrl => {
+    bitcoin.networkNodes.forEach((networkNodeUrl) => {
         const requestOptions: AxiosRequestConfig = {
             url: '/transaction',
             method: 'post',
@@ -43,7 +49,9 @@ app.post('/transaction/broadcast', (req, res) => {
     });
     Promise.all(requestPromises)
         .then((data) => {
-            res.json({ note: 'Transaction was created and broadcast successfully.' });
+            res.json({
+                note: 'Transaction was created and broadcast successfully.',
+            });
         })
         .catch((error) => {
             console.log(error);
@@ -59,11 +67,19 @@ app.get('/mine', (req, res) => {
         index: lastBlock['index'] + 1,
     };
     const nonce = bitcoin.proofOfWork(previousBlockHash, currentBlockData);
-    const blockHash = bitcoin.hashBlock(previousBlockHash, currentBlockData, nonce);
-    const newBlock = bitcoin.createNewBlock(nonce, previousBlockHash, blockHash);
+    const blockHash = bitcoin.hashBlock(
+        previousBlockHash,
+        currentBlockData,
+        nonce,
+    );
+    const newBlock = bitcoin.createNewBlock(
+        nonce,
+        previousBlockHash,
+        blockHash,
+    );
 
     const requestPromises = [];
-    bitcoin.networkNodes.forEach(networkNodeUrl => {
+    bitcoin.networkNodes.forEach((networkNodeUrl) => {
         const requestOptions: AxiosRequestConfig = {
             url: '/receive-new-block',
             method: 'post',
@@ -121,11 +137,17 @@ app.post('/receive-new-block', (req, res) => {
 // register new node and broadcast information to other registered nodes
 app.post('/register-and-broadcast-node', (req, res) => {
     const newNodeUrl: string = req.body.newNodeUrl;
-    if (bitcoin.networkNodes.indexOf(newNodeUrl) == -1) {
+    const nodeNotAlreadyPresent =
+        bitcoin.networkNodes.indexOf(newNodeUrl) == -1;
+    const notCurrentNode = bitcoin.currentNodeUrl !== newNodeUrl;
+    if (nodeNotAlreadyPresent && notCurrentNode) {
         bitcoin.networkNodes.push(newNodeUrl);
+    } else {
+        res.json({ note: 'Node was not added!' });
+        return;
     }
     const regNodesPromises = [];
-    bitcoin.networkNodes.forEach(networkNodeUrl => {
+    bitcoin.networkNodes.forEach((networkNodeUrl) => {
         const requestOptions: AxiosRequestConfig = {
             url: '/register-node',
             method: 'post',
@@ -141,7 +163,12 @@ app.post('/register-and-broadcast-node', (req, res) => {
                 url: '/register-nodes-bulk',
                 method: 'post',
                 baseURL: newNodeUrl,
-                data: { allNetworkNodes: [...bitcoin.networkNodes, bitcoin.currentNodeUrl] },
+                data: {
+                    allNetworkNodes: [
+                        ...bitcoin.networkNodes,
+                        bitcoin.currentNodeUrl,
+                    ],
+                },
             };
             return axios(bulkRegisterOptions);
         })
@@ -156,9 +183,11 @@ app.post('/register-and-broadcast-node', (req, res) => {
 // used on other nodes when they receive broadcast with new node parameters
 app.post('/register-node', (req, res) => {
     const newNodeUrl = req.body.newNodeUrl;
-    const nodeNotAlreadyPresent = bitcoin.networkNodes.indexOf(newNodeUrl) == -1;
+    const nodeNotAlreadyPresent =
+        bitcoin.networkNodes.indexOf(newNodeUrl) == -1;
     const notCurrentNode = bitcoin.currentNodeUrl !== newNodeUrl;
-    if (nodeNotAlreadyPresent && notCurrentNode) bitcoin.networkNodes.push(newNodeUrl);
+    if (nodeNotAlreadyPresent && notCurrentNode)
+        bitcoin.networkNodes.push(newNodeUrl);
     res.json({ note: 'New node registered successfully.' });
 });
 
@@ -166,32 +195,34 @@ app.post('/register-node', (req, res) => {
 app.post('/register-nodes-bulk', (req, res) => {
     const allNetworkNodes = req.body.allNetworkNodes;
     allNetworkNodes.forEach((networkNodeUrl) => {
-        const nodeNotAlreadyPresent = bitcoin.networkNodes.indexOf(networkNodeUrl) == -1;
+        const nodeNotAlreadyPresent =
+            bitcoin.networkNodes.indexOf(networkNodeUrl) == -1;
         const notCurrentNode = bitcoin.currentNodeUrl !== networkNodeUrl;
-        if (nodeNotAlreadyPresent && notCurrentNode) bitcoin.networkNodes.push(networkNodeUrl);
+        if (nodeNotAlreadyPresent && notCurrentNode)
+            bitcoin.networkNodes.push(networkNodeUrl);
     });
     res.json({ note: 'Bulk registration is successfull.' });
 });
 
-app.get('/consensus', (req, res) => {
-    const requestPromises = [];
-    bitcoin.networkNodes.forEach((networkNodeUrl) => {
-        const requestOptions: AxiosRequestConfig = {
-            url: '/blockchain',
-            method: 'get',
-            baseURL: networkNodeUrl,
-        };
+app.get('/consensus', async function(req, res) {
+    const requestPromises: IBlockChain[] = [];
 
-        requestPromises.push(axios(requestOptions));
-    });
+    for (const networkNodeUrl of bitcoin.networkNodes) {
+        const blockchain = (await axios.get(networkNodeUrl + '/blockchain')).data;
+        requestPromises.push(blockchain);
+    }
+
     Promise.all(requestPromises)
-        .then(blockchains => {
-            let maxChainLength = bitcoin.chain.length;
+        .then((blockchains) => {
+            const currentChainLength = bitcoin.chain.length;
+            let maxChainLength = currentChainLength;
             let newLongestChain = null;
             let newPendingTransactions = null;
 
-            blockchains.forEach(blockchain => {
-                if (blockchain.length > maxChainLength) {
+            blockchains.forEach((blockchain) => {
+                if (bitcoin.chainIsValid(blockchain.chain) &&
+                    blockchain.chain.length > maxChainLength
+                ) {
                     maxChainLength = blockchain.chain.length;
                     newLongestChain = blockchain.chain;
                     newPendingTransactions = blockchain.pendingTransactions;
@@ -203,16 +234,16 @@ app.get('/consensus', (req, res) => {
                     note: 'Current chain has not been replaced.',
                     chain: bitcoin.chain,
                 });
-            } else if (newLongestChain && bitcoin.chainIsValid(newLongestChain)) {
+            } else {
                 bitcoin.chain = newLongestChain;
                 bitcoin.pendingTransactions = newPendingTransactions;
                 res.json({
                     note: 'This chain has been replaced.',
                     chain: bitcoin.chain,
-                })
+                });
             }
         })
-        .catch(error => console.log(error));
+        .catch((e) => console.log(e));
 });
 
 app.listen(port, function() {
