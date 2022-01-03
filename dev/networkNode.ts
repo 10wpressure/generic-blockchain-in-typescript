@@ -204,7 +204,7 @@ app.post('/register-nodes-bulk', (req, res) => {
     res.json({ note: 'Bulk registration is successfull.' });
 });
 
-app.get('/consensus', async function(req, res) {
+app.get('/consensus', async (req, res) => {
     const requestPromises: IBlockChain[] = [];
 
     for (const networkNodeUrl of bitcoin.networkNodes) {
@@ -244,6 +244,20 @@ app.get('/consensus', async function(req, res) {
             }
         })
         .catch((e) => console.log(e));
+});
+
+app.get('/block/:blockHash', async (req, res, next) => {
+    const { blockHash } = req.params;
+    const correctBlock = bitcoin.getBlock(blockHash);
+    res.send(correctBlock);
+});
+
+app.get('/transaction/:transactionId', (req, res) => {
+
+});
+
+app.get('/address/:address', (req, res) => {
+
 });
 
 app.listen(port, function() {

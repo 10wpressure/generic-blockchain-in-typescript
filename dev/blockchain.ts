@@ -119,4 +119,12 @@ export class Blockchain implements IBlockChain {
         }
         return validChain;
     }
+
+    getBlock(blockHash: string) {
+        let correctBlock = null;
+        this.chain.forEach(block => {
+            if (block.hash === blockHash) correctBlock = block;
+        });
+        return correctBlock;
+    }
 }
