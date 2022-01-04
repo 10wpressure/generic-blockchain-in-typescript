@@ -4,6 +4,7 @@ const sha256 = require('sha256');
 const currentNodeUrl = process.argv[3];
 import { IBlock, ITransactions } from './interfaces/';
 import { v1 as uuid } from 'uuid';
+import ITransaction from './interfaces/ITransactions';
 
 export class Blockchain implements IBlockChain {
     chain: IBlock[] = [];
@@ -122,9 +123,51 @@ export class Blockchain implements IBlockChain {
 
     getBlock(blockHash: string) {
         let correctBlock = null;
-        this.chain.forEach(block => {
+        this.chain.forEach((block) => {
             if (block.hash === blockHash) correctBlock = block;
         });
         return correctBlock;
+    }
+
+    getTransaction(transactionId: string) {
+        let correctTransaction = null;
+        let correctBlock = null;
+        this.chain.forEach((block) => {
+            block.transactions.forEach((transaction) => {
+                if (transaction.transactionId === transactionId) {
+                    correctTransaction = transaction;
+                    correctBlock = block;
+                }
+            });
+        });
+        return {
+            transaction: correctTransaction,
+            block: correctBlock,
+        };
+    }
+    getAddressData(address: string) {
+        const addressTransactions: ITransaction[] = [];
+        this.chain.forEach((block) => {
+            block.transactions.forEach((transaction) => {
+                if (
+                    transaction.sender === address ||
+                    transaction.recipient === address
+                ) {
+                    addressTransactions.push(transaction);
+                }
+            });
+        });
+        let balance = 0;
+        addressTransactions.forEach((transaction) => {
+            if (transaction.recipient === address) {
+                balance += transaction.amount;
+            } else if (transaction.sender === address) {
+                balance -= transaction.amount;
+            }
+        });
+        return {
+            addressTransactions: addressTransactions,
+            addressBalance: balance,
+        };
     }
 }
